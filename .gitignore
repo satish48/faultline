@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Claude/Codex worktrees
+.claude/
+
+# Databases / runtime files
+*.db
+conflict_memory.json
+demo_conflict_memory.json
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environment inside package folder
+agentwatch/bin/
+agentwatch/lib/
+agentwatch/include/
+agentwatch/pyvenv.cfg
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
