@@ -246,7 +246,9 @@ class ComplianceReporter:
             "Ground every statement in the structured data provided. "
             "Do not invent findings not present in the data. "
             "summary must be exactly 3 sentences. "
-            "key_finding must be the single most important finding in under 20 words. "
+            "key_finding must reference the specific agents involved and the nature of "
+            "the conflict in under 20 words — never use generic phrases like "
+            "'high risk steps detected' or 'high risk actions detected'. "
             "risk_factors must be specific observations from the data — not generic warnings."
         )
 

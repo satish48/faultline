@@ -178,6 +178,19 @@ class ConflictSensor:
                 ev_a = max(decision_evs_a, key=lambda e: e.sequence_no)
                 ev_b = max(decision_evs_b, key=lambda e: e.sequence_no)
 
+                # Only compare pairs where one output is an approval decision
+                # and the other is a block/deny decision. Execution outputs
+                # like "execute_approve_refund" are not contradictory decisions.
+                out_a = str(ev_a.output).lower()
+                out_b = str(ev_b.output).lower()
+                one_approves_other_blocks = (
+                    (out_a.startswith("approve") and (out_b.startswith("block") or out_b.startswith("deny")))
+                    or
+                    (out_b.startswith("approve") and (out_a.startswith("block") or out_a.startswith("deny")))
+                )
+                if not one_approves_other_blocks:
+                    continue
+
                 result = await self._check_semantic(
                     str(ev_a.output), str(ev_b.output), agent_a, agent_b
                 )
@@ -285,26 +298,43 @@ class ConflictSensor:
                     fresher_agent = self._find_fresher_producer(
                         graph, ev.agent_name, ev.sequence_no
                     )
-                    if fresher_agent and fresher_agent != ev.agent_name:
-                        conflict = Conflict(
-                            run_id=graph.run_id,
-                            conflict_type=ConflictType.TEMPORAL,
-                            agents_involved=[ev.agent_name, fresher_agent],
-                            conflicting_outputs={
-                                ev.agent_name: f"using stale {key}={ctx_value}",
-                                fresher_agent: f"produced fresher {key} data",
-                            },
-                            triggering_event_ids=[ev.event_id],
-                            status=ConflictStatus.DETECTED,
-                        )
-                        conflicts.append(conflict)
-                        logger.warning(
-                            "temporal_conflict_detected",
-                            run_id=graph.run_id,
-                            agent=ev.agent_name,
-                            stale_key=key,
-                        )
-                        break  # one conflict per event is enough
+                    if not fresher_agent or fresher_agent == ev.agent_name:
+                        continue
+
+                    # Only flag if this agent actively uses the stale value as an
+                    # action input. If the agent has TOOL_CALL events, the stale
+                    # value must appear in at least one of their tool_args. If the
+                    # agent has no TOOL_CALL events the DECISION itself is the action.
+                    agent_tool_calls = [
+                        e for e in graph.events
+                        if e.agent_name == ev.agent_name
+                        and e.event_type == AgentEventType.TOOL_CALL
+                    ]
+                    if agent_tool_calls and not any(
+                        ctx_value in str(act_ev.tool_args or {})
+                        for act_ev in agent_tool_calls
+                    ):
+                        continue
+
+                    conflict = Conflict(
+                        run_id=graph.run_id,
+                        conflict_type=ConflictType.TEMPORAL,
+                        agents_involved=[ev.agent_name, fresher_agent],
+                        conflicting_outputs={
+                            ev.agent_name: f"using stale {key}={ctx_value}",
+                            fresher_agent: f"produced fresher {key} data",
+                        },
+                        triggering_event_ids=[ev.event_id],
+                        status=ConflictStatus.DETECTED,
+                    )
+                    conflicts.append(conflict)
+                    logger.warning(
+                        "temporal_conflict_detected",
+                        run_id=graph.run_id,
+                        agent=ev.agent_name,
+                        stale_key=key,
+                    )
+                    break  # one conflict per event is enough
 
         return conflicts
 

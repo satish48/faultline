@@ -142,10 +142,11 @@ async def run_demo(pretty: bool = False, export: bool = False) -> dict:
     _print_kv("Events captured", str(len(graph.events)))
     _print_kv("Agents involved", ", ".join(graph.agents_involved))
     _print_kv("Total cost", f"${graph.total_cost_usd or 0:.4f}")
-    _print_kv("Latency", f"{graph.total_latency_ms or 0:.0f}ms")
+    if graph.total_latency_ms and graph.total_latency_ms > 10:
+        _print_kv("Agent execution latency (excl. LLM)", f"{graph.total_latency_ms:.0f}ms")
 
     # ── Conflict Detection ────────────────────────────
-    _print_section("Conflict Detection — Pillar B")
+    _print_section("Conflict Detection & Root Cause")
 
     sensor     = ConflictSensor(client=llm)
     classifier = RootCauseClassifier(client=llm)
@@ -191,7 +192,7 @@ async def run_demo(pretty: bool = False, export: bool = False) -> dict:
     _print_kv("Recommendations", str(len(recs)))
 
     # ── Decision Audit ────────────────────────────────
-    _print_section("Decision Audit — Pillar A")
+    _print_section("Decision Audit & Compliance Report")
 
     decomposer = DecisionDecomposer(client=llm)
     explainer  = NLExplainer(client=llm)
@@ -218,7 +219,7 @@ async def run_demo(pretty: bool = False, export: bool = False) -> dict:
 
     _print_kv("Overall risk",    report.overall_risk.value.upper(),
               color="red" if report.overall_risk.value == "high" else "yellow")
-    _print_kv("Key finding",     report.key_finding)
+    _print_kv("Key finding",     _clean_finding(report.key_finding))
     _print_kv("Report ID",       report.report_id)
 
     # ── Final Summary ─────────────────────────────────
@@ -249,10 +250,38 @@ async def run_demo(pretty: bool = False, export: bool = False) -> dict:
     }
 
     for k, v in summary.items():
-        if isinstance(v, list):
+        if k in ("recommendations", "patterns_in_memory"):
+            continue  # recommendations printed below; patterns are internal
+        elif k == "total_latency_ms":
+            _print_kv(
+                "End-to-end pipeline latency (incl. LLM calls)",
+                f"{v / 1000:.1f}s",
+            )
+        elif k == "total_cost_usd":
+            _print_kv("Total Cost (USD)", str(v))
+        elif isinstance(v, list):
             _print_kv(k.replace("_", " ").title(), ", ".join(str(x) for x in v) or "none")
         else:
             _print_kv(k.replace("_", " ").title(), str(v))
+
+    _print_recommendations(patterns)
+
+    # ── Executive Summary ─────────────────────────────
+    deduped_recs = _dedup_recommendations(patterns)
+    top_rec = _clean_rec(deduped_recs[0][0]) if deduped_recs else (recs[0] if recs else "No recommendations yet")
+    n_conflicts = len(resolved_conflicts)
+    outcome = (
+        f"BLOCKED — {n_conflicts} inter-agent conflict{'s' if n_conflicts != 1 else ''} detected"
+        if n_conflicts else "COMPLETED — no conflicts detected"
+    )
+
+    _print_section("Executive Summary")
+    _print_kv("Outcome",            outcome, color="red" if n_conflicts else "green")
+    _print_kv("Audit Risk",         report.overall_risk.value.upper(),
+              color="red" if report.overall_risk.value == "high" else "yellow")
+    _print_kv("Key Finding",        _clean_finding(report.key_finding))
+    _print_kv("Top Recommendation", top_rec)
+    _print_kv("Run ID",             run_id)
 
     if pretty:
         print("\n" + "─" * 60)
@@ -289,6 +318,16 @@ COLORS = {
     "reset":  "\033[0m",
 }
 
+def _clean_finding(text: str) -> str:
+    """Ensure Key Finding starts with a capital letter and ends with a period."""
+    if not text:
+        return text
+    text = text[0].upper() + text[1:]
+    if not text.endswith("."):
+        text += "."
+    return text
+
+
 def _c(text: str, color: str) -> str:
     return f"{COLORS.get(color, '')}{text}{COLORS['reset']}"
 
@@ -307,6 +346,47 @@ def _print_step(num: str, agent: str, msg: str):
 def _print_kv(key: str, val: str, color: str = ""):
     val_str = _c(val, color) if color else val
     print(f"     {key:<30} {val_str}")
+
+
+def _clean_rec(text: str) -> str:
+    """Replace template placeholders with human-readable equivalents at render time."""
+    return text.replace("[agents]", "affected agents'").replace("[threshold]", "30s")
+
+
+def _dedup_recommendations(patterns) -> list:
+    """
+    Group recommendations that share the same template, differing only in agent names.
+    Returns list of (canonical_text, [(agent_a, agent_b), ...]) in occurrence order.
+    """
+    groups: dict = {}
+    for p in patterns:
+        if p.occurrence_count < 2:  # mirror RECOMMENDATION_THRESHOLD
+            continue
+        agents_str = " and ".join(p.agents_involved)
+        canonical = p.fix_recommendation.replace(agents_str, "[agents]")
+        if canonical not in groups:
+            groups[canonical] = []
+        pair = tuple(sorted(p.agents_involved))
+        if pair not in groups[canonical]:
+            groups[canonical].append(pair)
+    return list(groups.items())
+
+
+def _print_recommendations(patterns) -> None:
+    """Print deduplicated recommendations grouped by template with affected agent pairs."""
+    deduped = _dedup_recommendations(patterns)
+    if not deduped:
+        _print_kv("Recommendations", "None yet (need more observations)")
+        return
+
+    print(f"\n     Recommendations ({len(deduped)} unique):")
+    for i, (canonical, pairs) in enumerate(deduped, 1):
+        print(f"\n     [{i}] {_clean_rec(canonical)}")
+        pair_strs = ", ".join(
+            f"({a.replace('_agent', '')} ↔ {b.replace('_agent', '')})"
+            for a, b in pairs
+        )
+        print(f"         Affected pairs: {pair_strs}")
 
 
 # ── Entry point ───────────────────────────────────────
