@@ -48,6 +48,7 @@ class CounterfactualExplorer:
 
     def __init__(self, client: LLMClient):
         self.client = client
+        self._semaphore = asyncio.Semaphore(5)
 
     async def explore(
         self,
@@ -111,6 +112,38 @@ class CounterfactualExplorer:
             divergence_point=divergence_point,
             explanation=result.get("reasoning", ""),
         )
+
+    async def batch_explore(
+        self,
+        graph,
+        nodes: list,
+        modifications: list,
+    ) -> list:
+        """
+        Run multiple counterfactuals in parallel.
+        Zips nodes with modifications — must be same length.
+        Max 5 concurrent LLM calls via semaphore.
+        """
+        if len(nodes) != len(modifications):
+            raise ValueError("nodes and modifications must be same length")
+
+        async def _run(node, mod):
+            async with self._semaphore:
+                return await self.explore(graph, node, mod)
+
+        results = await asyncio.gather(
+            *[_run(n, m) for n, m in zip(nodes, modifications)],
+            return_exceptions=True,
+        )
+
+        clean = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                print(f"counterfactual_failed: node={nodes[i].node_id} error={r}")
+            else:
+                clean.append(r)
+
+        return clean
 
     async def find_sensitive_decisions(
         self,
@@ -178,44 +211,4 @@ class CounterfactualExplorer:
                     return modified
 
         return modified
-
-
-        async def batch_explore(
-            self,
-            graph,
-            nodes,
-            modifications,
-        ):
-            """
-            Run multiple counterfactual explorations in parallel.
-            """
-            if len(nodes) != len(modifications):
-                raise ValueError("nodes and modifications must be same length")
-
-            async def _run(node, mod):
-                async with self._semaphore:
-                    return await self.explore(graph, node, mod)
-
-            results = await asyncio.gather(
-                *[
-                    _run(node, mod)
-                    for node, mod in zip(nodes, modifications)
-                ],
-                return_exceptions=True,
-            )
-
-            clean = []
-
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(
-                        "counterfactual_failed",
-                        node_id=nodes[i].node_id,
-                        error=str(result),
-                    )
-                else:
-                    clean.append(result)
-
-            return clean
-            
 

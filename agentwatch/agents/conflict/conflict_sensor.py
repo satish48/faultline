@@ -100,18 +100,19 @@ class ConflictSensor:
 
     async def _detect_semantic(self, graph: TraceGraph) -> List[Conflict]:
         """
-        Checks pairs of agents that handed off to each other for
-        semantic contradictions in their outputs.
-        Only HANDOFF events create pairs — we check those seams.
+        Checks for semantic contradictions between agent outputs.
+
+        Pass 1 — handoff seams: for each HANDOFF event, compare the
+        sending agent's last output with the receiving agent's first output.
+
+        Pass 2 — all-pairs: compare the most recent DECISION output of
+        every unique agent pair not already caught by pass 1.
         """
         conflicts: List[Conflict] = []
-        handoffs = graph.get_handoffs()
+        seen_pairs: set = set()
 
-        if not handoffs:
-            return []
-
-        # Build pairs: (from_agent_last_output, to_agent_first_output)
-        for handoff in handoffs:
+        # Pass 1: handoff-based detection
+        for handoff in graph.get_handoffs():
             from_agent = handoff.agent_name
             to_agent = handoff.metadata.get("to_agent")
             if not to_agent:
@@ -128,6 +129,8 @@ class ConflictSensor:
             )
 
             if result["contradicts"] and result["confidence"] >= self.semantic_threshold:
+                pair = frozenset({from_agent, to_agent})
+                seen_pairs.add(pair)
                 conflict = Conflict(
                     run_id=graph.run_id,
                     conflict_type=ConflictType.SEMANTIC,
@@ -146,6 +149,59 @@ class ConflictSensor:
                     agents=[from_agent, to_agent],
                     confidence=result["confidence"],
                 )
+
+        # Pass 2: all-pairs check on most recent DECISION outputs
+        agents = graph.agents_involved
+        for i in range(len(agents)):
+            for j in range(i + 1, len(agents)):
+                agent_a, agent_b = agents[i], agents[j]
+                pair = frozenset({agent_a, agent_b})
+                if pair in seen_pairs:
+                    continue
+
+                decision_evs_a = [
+                    e for e in graph.events
+                    if e.agent_name == agent_a
+                    and e.event_type == AgentEventType.DECISION
+                    and e.output is not None
+                ]
+                decision_evs_b = [
+                    e for e in graph.events
+                    if e.agent_name == agent_b
+                    and e.event_type == AgentEventType.DECISION
+                    and e.output is not None
+                ]
+
+                if not decision_evs_a or not decision_evs_b:
+                    continue
+
+                ev_a = max(decision_evs_a, key=lambda e: e.sequence_no)
+                ev_b = max(decision_evs_b, key=lambda e: e.sequence_no)
+
+                result = await self._check_semantic(
+                    str(ev_a.output), str(ev_b.output), agent_a, agent_b
+                )
+
+                if result["contradicts"] and result["confidence"] >= self.semantic_threshold:
+                    seen_pairs.add(pair)
+                    conflict = Conflict(
+                        run_id=graph.run_id,
+                        conflict_type=ConflictType.SEMANTIC,
+                        agents_involved=[agent_a, agent_b],
+                        conflicting_outputs={
+                            agent_a: ev_a.output,
+                            agent_b: ev_b.output,
+                        },
+                        triggering_event_ids=[ev_a.event_id, ev_b.event_id],
+                        status=ConflictStatus.DETECTED,
+                    )
+                    conflicts.append(conflict)
+                    logger.warning(
+                        "semantic_conflict_detected",
+                        run_id=graph.run_id,
+                        agents=[agent_a, agent_b],
+                        confidence=result["confidence"],
+                    )
 
         return conflicts
 
@@ -203,13 +259,14 @@ class ConflictSensor:
     def _detect_temporal(self, graph: TraceGraph) -> List[Conflict]:
         """
         Detects when an agent's input_context contains a timestamp field
-        that is older than a previous event's timestamp in the same run.
-
-        Looks for keys containing: 'timestamp', 'updated_at', 'created_at',
-        'date', 'time', 'version' — common staleness indicators.
+        that is older than when the event itself occurred, and another agent
+        had any event before this one (implying fresher data was available).
 
         Fully deterministic — no LLM involved.
         """
+        if len(graph.agents_involved) < 2:
+            return []
+
         conflicts: List[Conflict] = []
         staleness_keys = ["timestamp", "updated_at", "created_at", "modified_at", "version_date"]
 
@@ -219,17 +276,14 @@ class ConflictSensor:
                 if ctx_value is None:
                     continue
 
-                # Try to parse as datetime
                 ctx_dt = self._try_parse_datetime(str(ctx_value))
                 if ctx_dt is None:
                     continue
 
-                # Compare against event's own timestamp
-                if ctx_dt < ev.timestamp.replace(tzinfo=None) if ev.timestamp.tzinfo else ctx_dt < ev.timestamp:
-                    # Context data is older than when the event occurred
-                    # Check if another agent produced fresher data
+                event_ts = ev.timestamp.replace(tzinfo=None) if ev.timestamp.tzinfo else ev.timestamp
+                if ctx_dt < event_ts:
                     fresher_agent = self._find_fresher_producer(
-                        graph, key, ctx_dt, ev.sequence_no
+                        graph, ev.agent_name, ev.sequence_no
                     )
                     if fresher_agent and fresher_agent != ev.agent_name:
                         conflict = Conflict(
@@ -304,11 +358,11 @@ class ConflictSensor:
     def _get_last_output(
         graph: TraceGraph, agent_name: str, before_seq: int
     ) -> Optional[Any]:
-        """Get the most recent output from an agent before a given sequence number."""
+        """Get the most recent output from an agent up to and including before_seq."""
         agent_events = [
             e for e in graph.events
             if e.agent_name == agent_name
-            and e.sequence_no < before_seq
+            and e.sequence_no <= before_seq
             and e.output is not None
         ]
         if not agent_events:
@@ -349,18 +403,17 @@ class ConflictSensor:
     @staticmethod
     def _find_fresher_producer(
         graph: TraceGraph,
-        key: str,
-        stale_dt: datetime,
+        stale_agent: str,
         before_seq: int,
     ) -> Optional[str]:
         """
-        Find if another agent produced a fresher version of this key
-        before the current event's sequence number.
+        Return the first agent other than stale_agent that had any event
+        before before_seq. Presence of any earlier event means that agent
+        had fresher state available at the time the stale event occurred.
         """
-        for ev in graph.events:
+        for ev in sorted(graph.events, key=lambda e: e.sequence_no):
             if ev.sequence_no >= before_seq:
-                continue
-            output_str = str(ev.output or "")
-            if key in output_str:
+                break
+            if ev.agent_name != stale_agent:
                 return ev.agent_name
         return None

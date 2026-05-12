@@ -199,16 +199,19 @@ class DecisionDecomposer:
         """
         Rule-based — never LLM-generated.
         A decision is critical if it:
-        - Is a HANDOFF (passes control to another agent)
-        - Is a TOOL_CALL (side-effectful external action)
+        - Is a HANDOFF, TOOL_CALL, or ERROR event type
         - Has low confidence (< 0.6) — agent was uncertain
-        - Produced an ERROR event type
+        - chosen_option contains a high-stakes action keyword
         """
-        if event.event_type in {AgentEventType.HANDOFF, AgentEventType.TOOL_CALL}:
+        if event.event_type in {AgentEventType.HANDOFF, AgentEventType.TOOL_CALL, AgentEventType.ERROR}:
             return True
+
         confidence = extracted.get("confidence")
         if confidence is not None and confidence < 0.6:
             return True
-        if event.event_type == AgentEventType.ERROR:
+
+        chosen = str(extracted.get("chosen_option", "")).lower()
+        if any(kw in chosen for kw in ["approve", "block", "execute", "refund", "escalate"]):
             return True
+
         return False
