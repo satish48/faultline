@@ -206,6 +206,41 @@ sequenceDiagram
 
 ---
 
+## Dashboard
+
+Three-tab observability interface. Start with:
+
+```bash
+# Terminal 1 — API
+uvicorn agentwatch.api.main:app --reload --port 8000
+
+# Terminal 2 — Dashboard  
+python -m streamlit run agentwatch/dashboard/app.py
+```
+
+### Decision Audit
+Run any agent pipeline, paste the Run ID, and get a full 
+grounded audit report — risk level, decision trail, 
+counterfactual sensitivity analysis, and risk factors.
+
+![Decision Audit](docs/images/dashboard_audit.png)
+
+### Conflict Monitor
+Scan any run for inter-agent conflicts. Detects semantic, 
+procedural, and temporal conflicts with root cause classification 
+and autonomous resolution strategy.
+
+![Conflict Monitor](docs/images/dashboard_conflicts.png)
+
+### Memory & Recommendations
+Accumulates conflict patterns across runs. Surfaces specific 
+architectural fix recommendations when the same pattern 
+recurs across multiple runs.
+
+![Memory & Recommendations](docs/images/dashboard_memory.png)
+
+---
+
 ## Quick Start
 
 ```bash
