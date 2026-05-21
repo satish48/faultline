@@ -56,14 +56,14 @@ FIX_TEMPLATES: Dict[str, str] = {
     ),
     RootCauseType.STALE_STATE.value: (
         "Add timestamp validation to {agents} context ingestion. "
-        "Reject context older than [threshold] seconds and re-fetch before acting."
+        "Reject context older than 30s and re-fetch before acting."
     ),
     RootCauseType.PERMISSION_BOUNDARY_VIOLATION.value: (
         "Explicitly define the permission scope for {agents} in their system prompts. "
         "Add a permission check tool call before any state-mutating action."
     ),
     RootCauseType.UNKNOWN.value: (
-        "Review the interaction between {agents} manually. "
+        "Review the interaction between affected agents manually. "
         "Instrument additional logging at handoff points to capture more context."
     ),
 }

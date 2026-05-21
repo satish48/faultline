@@ -31,6 +31,9 @@ import time
 from pathlib import Path
 
 import structlog
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Silence noisy logs during demo — only show our structured output
 structlog.configure(

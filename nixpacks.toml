@@ -1,16 +1,20 @@
+[variables]
+LD_LIBRARY_PATH="/nix/store:/usr/lib:/lib"
+
 [phases.setup]
 nixPkgs = [
   "python311",
   "python311Packages.pip",
-  "stdenv.cc.cc.lib"
+  "gcc-unwrapped",
+  "stdenv.cc.cc",
 ]
 
 [phases.install]
 cmds = [
   "python -m venv /opt/venv",
-  ". /opt/venv/bin/activate && pip install --upgrade pip",
-  ". /opt/venv/bin/activate && pip install -r agentwatch/requirements.txt"
+  ". /opt/venv/bin/activate && pip install --upgrade pip setuptools wheel",
+  ". /opt/venv/bin/activate && pip install --no-cache-dir -r agentwatch/requirements.txt"
 ]
 
 [start]
-cmd = "LD_LIBRARY_PATH=/nix/store/*-gcc-*/lib:$LD_LIBRARY_PATH . /opt/venv/bin/activate && python -m uvicorn agentwatch.api.main:app --host 0.0.0.0 --port $PORT"
+cmd = ". /opt/venv/bin/activate && uvicorn agentwatch.api.main:app --host 0.0.0.0 --port $PORT"
