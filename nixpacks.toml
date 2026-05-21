@@ -1,5 +1,9 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+nixPkgs = [
+  "python311",
+  "python311Packages.pip",
+  "stdenv.cc.cc.lib"
+]
 
 [phases.install]
 cmds = [
@@ -9,4 +13,4 @@ cmds = [
 ]
 
 [start]
-cmd = ". /opt/venv/bin/activate && python -m uvicorn agentwatch.api.main:app --host 0.0.0.0 --port $PORT"
+cmd = "LD_LIBRARY_PATH=/nix/store/*-gcc-*/lib:$LD_LIBRARY_PATH . /opt/venv/bin/activate && python -m uvicorn agentwatch.api.main:app --host 0.0.0.0 --port $PORT"
