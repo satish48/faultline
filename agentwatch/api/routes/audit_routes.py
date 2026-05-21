@@ -8,7 +8,12 @@ POST /audit/{id}/export — export report as markdown
 
 from __future__ import annotations
 
+import json
+import os
 import time
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict
 
 import structlog
@@ -26,8 +31,10 @@ from agentwatch.agents.auditor.compliance_reporter import ComplianceReporter
 from agentwatch.agents.auditor.counterfactual_explorer import CounterfactualExplorer
 from agentwatch.agents.auditor.decision_decomposer import DecisionDecomposer
 from agentwatch.agents.auditor.nl_explainer import NLExplainer
-from agentwatch.core.models.schemas import AuditReport, AuditRequest
+from agentwatch.core.models.schemas import AuditReport, AuditRequest, RiskLevel
 from agentwatch.core.store.trace_store import TraceStore
+
+_DEMO_CACHE_PATH = Path(__file__).parent.parent.parent / "demo" / "demo_cache.json"
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -53,6 +60,30 @@ async def run_audit(
     4. CounterfactualExplorer — find sensitive decisions (optional)
     5. ComplianceReporter — assemble final report
     """
+    # ── Demo mode — return cached response, no LLM calls ──────────────────
+    DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+    if DEMO_MODE:
+        with open(_DEMO_CACHE_PATH) as _f:
+            data = json.load(_f)
+        report = AuditReport(
+            report_id=str(uuid.uuid4()),
+            run_id=body.run_id,
+            generated_at=datetime.now(timezone.utc),
+            steps=[],
+            overall_risk=RiskLevel(data["audit_overall_risk"]),
+            key_finding=data["audit_key_finding"],
+            summary=(
+                f"Demo mode: {data['conflicts_detected']} conflicts detected "
+                f"across {len(data['agents_involved'])} agents."
+            ),
+            risk_factors=data.get("recommendations", [])[:3],
+            compliance_data=data,
+        )
+        cache[report.report_id] = report
+        logger.info("demo_mode_audit", run_id=body.run_id, report_id=report.report_id)
+        return report
+    # ── Live pipeline ──────────────────────────────────────────────────────
+
     t_start = time.monotonic()
 
     # 1. Fetch trace

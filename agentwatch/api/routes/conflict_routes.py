@@ -11,6 +11,11 @@ POST /conflicts/scan/{run_id} — run conflict scan on a stored trace
 
 from __future__ import annotations
 
+import json
+import os
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import structlog
@@ -33,8 +38,12 @@ from agentwatch.core.models.schemas import (
     ConflictStatus,
     ConflictSummary,
     ConflictType,
+    ResolutionStrategy,
+    RootCauseType,
 )
 from agentwatch.core.store.trace_store import TraceStore
+
+_DEMO_CACHE_PATH = Path(__file__).parent.parent.parent / "demo" / "demo_cache.json"
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -55,6 +64,51 @@ async def scan_for_conflicts(
     Run a full conflict scan on a stored trace.
     Classifies root causes and updates conflict memory.
     """
+    # ── Demo mode — return cached conflicts, no LLM calls ─────────────────
+    DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() == "true"
+    if DEMO_MODE:
+        with open(_DEMO_CACHE_PATH) as _f:
+            data = json.load(_f)
+        agents = data.get("agents_involved", ["agent_a", "agent_b", "agent_c"])
+        cs_agent   = next((a for a in agents if "customer" in a), agents[0])
+        comp_agent = next((a for a in agents if "compliance" in a), agents[1 % len(agents)])
+        bill_agent = next((a for a in agents if "billing" in a),   agents[2 % len(agents)])
+        now = datetime.now(timezone.utc)
+        logger.info("demo_mode_conflict_scan", run_id=run_id)
+        return [
+            ConflictSummary(
+                conflict_id=str(uuid.uuid4()),
+                run_id=run_id,
+                conflict_type=ConflictType.SEMANTIC,
+                status=ConflictStatus.RESOLVED,
+                agents_involved=[cs_agent, comp_agent],
+                detected_at=now,
+                root_cause_type=RootCauseType.INSTRUCTION_AMBIGUITY,
+                resolution_strategy=ResolutionStrategy.SYNTHESIZE,
+            ),
+            ConflictSummary(
+                conflict_id=str(uuid.uuid4()),
+                run_id=run_id,
+                conflict_type=ConflictType.PROCEDURAL,
+                status=ConflictStatus.RESOLVED,
+                agents_involved=[cs_agent, bill_agent],
+                detected_at=now,
+                root_cause_type=RootCauseType.TOOL_RESULT_DIVERGENCE,
+                resolution_strategy=ResolutionStrategy.ARBITRATE,
+            ),
+            ConflictSummary(
+                conflict_id=str(uuid.uuid4()),
+                run_id=run_id,
+                conflict_type=ConflictType.TEMPORAL,
+                status=ConflictStatus.RESOLVED,
+                agents_involved=[bill_agent, cs_agent],
+                detected_at=now,
+                root_cause_type=RootCauseType.STALE_STATE,
+                resolution_strategy=ResolutionStrategy.RESET,
+            ),
+        ]
+    # ── Live pipeline ──────────────────────────────────────────────────────
+
     graph = await store.get_trace(run_id)
     if graph is None:
         raise HTTPException(status_code=404, detail=f"Trace {run_id} not found")

@@ -1,0 +1,37 @@
+{
+  "run_id": "094822f1-04d8-47b2-a07e-5ee20de67b0f",
+  "total_latency_ms": 8814.3,
+  "total_cost_usd": 0.00162,
+  "total_tokens": 540,
+  "events_captured": 8,
+  "agents_involved": [
+    "compliance_agent",
+    "billing_agent",
+    "customer_service_agent"
+  ],
+  "conflicts_detected": 3,
+  "conflict_types": [
+    "semantic",
+    "procedural",
+    "temporal"
+  ],
+  "resolutions_applied": [
+    "synthesize",
+    "arbitrate",
+    "reset"
+  ],
+  "decision_nodes": 3,
+  "critical_decisions": 3,
+  "sensitive_decisions": 1,
+  "audit_overall_risk": "high",
+  "audit_key_finding": "Customer service agent approves refund",
+  "patterns_in_memory": 7,
+  "recommendations": [
+    "Add timestamp validation to customer_service_agent and compliance_agent context ingestion. Reject context older than 30s and re-fetch before acting.",
+    "Add timestamp validation to billing_agent and customer_service_agent context ingestion. Reject context older than 30s and re-fetch before acting.",
+    "Rewrite the customer_service_agent and compliance_agent system prompts to explicitly define behavior when handling semantic. Add a negative example showing what NOT to do.",
+    "Add timestamp validation to customer_service_agent and compliance_agent context ingestion. Reject context older than 30s and re-fetch before acting.",
+    "Review the interaction between affected agents manually. Instrument additional logging at handoff points to capture more context.",
+    "Review the interaction between affected agents manually. Instrument additional logging at handoff points to capture more context."
+  ]
+}
