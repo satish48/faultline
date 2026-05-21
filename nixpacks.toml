@@ -6,13 +6,14 @@ nixPkgs = [
   "python311",
   "python311Packages.pip",
   "gcc-unwrapped",
-  "stdenv.cc.cc",
+  "stdenv.cc.cc.lib"
 ]
 
 [phases.install]
 cmds = [
   "python -m venv /opt/venv",
   ". /opt/venv/bin/activate && pip install --upgrade pip setuptools wheel",
+  ". /opt/venv/bin/activate && pip install --no-cache-dir greenlet==3.0.3",
   ". /opt/venv/bin/activate && pip install --no-cache-dir -r agentwatch/requirements.txt"
 ]
 
