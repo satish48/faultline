@@ -12,6 +12,18 @@
 
 </div>
 
+<div align="center">
+
+### Live System
+
+[![Live Demo](https://img.shields.io/badge/Live%20Dashboard-Faultline%20Demo-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://faultline-demo.streamlit.app)
+
+[![API Docs](https://img.shields.io/badge/API-FastAPI%20Docs-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://faultline-production-e04c.up.railway.app/docs)
+
+[![Backend](https://img.shields.io/badge/Backend-Railway-6C47FF?style=for-the-badge&logo=railway&logoColor=white)](https://faultline-production-e04c.up.railway.app)
+
+</div>
+
 ---
 
 Autonomous AI systems fail differently than deterministic software. They don't throw exceptions. They don't return error codes. They make decisions — often conflicting ones — and those decisions propagate downstream before anyone notices.
