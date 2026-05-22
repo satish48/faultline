@@ -502,15 +502,16 @@ with tab2:
 
                     with st.expander(label):
                         rc         = safe_get(conflict, "root_cause_type",    None) or "unknown"
-                        confidence = bounded_float(safe_get(conflict, "root_cause_confidence", None))
+                        confidence = float(conflict.get("root_cause_confidence") or 0.0)
                         strategy   = safe_get(conflict, "resolution_strategy", None)
                         status     = safe_get(conflict, "status",              "detected")
 
                         rc_col, conf_col = st.columns(2)
                         rc_col.markdown(f"**Root Cause:** {_humanize(rc)}")
                         with conf_col:
-                            st.markdown(f"**Confidence:** {confidence:.0%}")
-                            st.progress(confidence)
+                            st.markdown("**Confidence**")
+                            st.progress(min(max(confidence, 0.0), 1.0))
+                            st.caption(f"Confidence: {confidence:.0%}")
 
                         st.markdown(f"**Resolution Strategy:** {_humanize(strategy) if strategy else '—'}")
                         st.markdown(f"**Status:** {_humanize(status)}")

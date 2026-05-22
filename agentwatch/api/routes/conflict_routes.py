@@ -84,6 +84,7 @@ async def scan_for_conflicts(
                 agents_involved=[cs_agent, comp_agent],
                 detected_at=now,
                 root_cause_type=RootCauseType.INSTRUCTION_AMBIGUITY,
+                root_cause_confidence=0.85,
                 resolution_strategy=ResolutionStrategy.SYNTHESIZE,
             ),
             ConflictSummary(
@@ -94,6 +95,7 @@ async def scan_for_conflicts(
                 agents_involved=[cs_agent, bill_agent],
                 detected_at=now,
                 root_cause_type=RootCauseType.TOOL_RESULT_DIVERGENCE,
+                root_cause_confidence=0.90,
                 resolution_strategy=ResolutionStrategy.ARBITRATE,
             ),
             ConflictSummary(
@@ -104,6 +106,7 @@ async def scan_for_conflicts(
                 agents_involved=[bill_agent, cs_agent],
                 detected_at=now,
                 root_cause_type=RootCauseType.STALE_STATE,
+                root_cause_confidence=0.90,
                 resolution_strategy=ResolutionStrategy.RESET,
             ),
         ]

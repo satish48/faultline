@@ -273,14 +273,15 @@ class AuditRequest(BaseModel):
 
 
 class ConflictSummary(BaseModel):
-    conflict_id:         str
-    run_id:              str
-    conflict_type:       ConflictType
-    status:              ConflictStatus
-    agents_involved:     List[str]
-    detected_at:         datetime
-    root_cause_type:     Optional[RootCauseType]      = None
-    resolution_strategy: Optional[ResolutionStrategy] = None
+    conflict_id:            str
+    run_id:                 str
+    conflict_type:          ConflictType
+    status:                 ConflictStatus
+    agents_involved:        List[str]
+    detected_at:            datetime
+    root_cause_type:        Optional[RootCauseType]      = None
+    root_cause_confidence:  Optional[float]              = Field(None, ge=0.0, le=1.0)
+    resolution_strategy:    Optional[ResolutionStrategy] = None
 
     model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}
 
