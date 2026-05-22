@@ -290,15 +290,21 @@ with tab1:
 
     st.markdown("**📊 Backend Execution Evidence**")
     e1, e2, e3, e4 = st.columns(4)
-    e1.metric("Run ID",             "demo-session-001")
-    e2.metric("Events Captured",    "8")
-    e3.metric("Agents Involved",    "3")
-    e4.metric("Conflicts Detected", "3")
+    e1.metric("Run",               "demo-session-001")
+    e2.metric("Events",            "8")
+    e3.metric("Agents",            "3")
+    e4.metric("Conflicts Detected","3")
 
     e5, e6, e7 = st.columns(3)
-    e5.metric("Resolutions Applied", "synthesize · arbitrate · reset")
-    e6.metric("Total Latency",       "8.8s")
-    e7.metric("Estimated Cost",      "$0.00162")
+    with e5:
+        st.markdown("**Resolutions Applied**")
+        st.code("synthesize · arbitrate · reset")
+    with e6:
+        st.markdown("**Total Latency**")
+        st.code("8.8s")
+    with e7:
+        st.markdown("**Estimated Cost**")
+        st.code("$0.00162")
 
     st.divider()
 
