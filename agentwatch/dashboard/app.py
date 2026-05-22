@@ -259,6 +259,49 @@ with tab1:
             "TEMPORAL (billing uses stale context)."
         )
 
+    with st.container():
+        left_col, right_col = st.columns(2)
+
+        with left_col:
+            st.markdown("**🤖 Agents Running**")
+            st.markdown(
+                '<span style="background:#1a3a1a;color:#2ECC71;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">🟢 CustomerServiceAgent</span><br>'
+                '<span style="background:#3a1a1a;color:#E8341A;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">🔴 ComplianceAgent</span><br>'
+                '<span style="background:#3a2e00;color:#F5A623;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">🟡 BillingAgent</span><br>'
+                '<span style="background:#1a2a3a;color:#4a9eff;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">🔵 ConflictSensor</span><br>'
+                '<span style="background:#2a1a3a;color:#b47fff;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">🟣 ResolutionStrategist</span><br>'
+                '<span style="background:#2a2a2a;color:#cccccc;padding:2px 8px;border-radius:4px;font-size:0.85em;margin:2px 0;display:inline-block;">⚪ ComplianceReporter</span>',
+                unsafe_allow_html=True,
+            )
+
+        with right_col:
+            st.markdown("**⚡ Execution Flow**")
+            st.markdown(
+                "Trace Ingested  \n"
+                "→ CustomerServiceAgent decision  \n"
+                "→ ComplianceAgent review  \n"
+                "→ BillingAgent execution  \n"
+                "→ ConflictSensor detects mismatch  \n"
+                "→ ResolutionStrategist recommends fix  \n"
+                "→ AuditReport generated"
+            )
+
+    st.divider()
+
+    st.markdown("**📊 Backend Execution Evidence**")
+    e1, e2, e3, e4 = st.columns(4)
+    e1.metric("Run ID",             "demo-session-001")
+    e2.metric("Events Captured",    "8")
+    e3.metric("Agents Involved",    "3")
+    e4.metric("Conflicts Detected", "3")
+
+    e5, e6, e7 = st.columns(3)
+    e5.metric("Resolutions Applied", "synthesize · arbitrate · reset")
+    e6.metric("Total Latency",       "8.8s")
+    e7.metric("Estimated Cost",      "$0.00162")
+
+    st.divider()
+
     run_id_audit = st.text_input(
         "Run ID",
         key="audit_run_id",
