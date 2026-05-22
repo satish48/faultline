@@ -224,6 +224,41 @@ with tab1:
         "risk classification, decision trail, counterfactual sensitivity, and risk factors."
     )
 
+    with st.expander("ℹ️ What's running in this demo?", expanded=True):
+        st.markdown(
+            "This demo runs a pre-recorded 3-agent customer service pipeline. "
+            "The trace was captured from a live run — all conflicts, decisions, "
+            "and recommendations below are real outputs from the system."
+        )
+
+        a1, a2, a3 = st.columns(3)
+        with a1:
+            st.markdown("**🟢 CustomerServiceAgent**")
+            st.markdown(
+                "Approves refunds based on customer tier.  \n"
+                "Tier: `premium` · Amount: `$150`  \n"
+                "Decision: `approve_refund`"
+            )
+        with a2:
+            st.markdown("**🔴 ComplianceAgent**")
+            st.markdown(
+                "Blocks refunds above risk threshold (`$100`).  \n"
+                "Independent of CustomerService.  \n"
+                "Decision: `block_refund`"
+            )
+        with a3:
+            st.markdown("**🟡 BillingAgent**")
+            st.markdown(
+                "Executes billing using context that is 3 hours stale.  \n"
+                "Uses: `updated_at` timestamp from stale order data."
+            )
+
+        st.caption(
+            "These three agents generate all three conflict types: "
+            "SEMANTIC (approve vs block), PROCEDURAL (both call process_refund), "
+            "TEMPORAL (billing uses stale context)."
+        )
+
     run_id_audit = st.text_input(
         "Run ID",
         key="audit_run_id",
