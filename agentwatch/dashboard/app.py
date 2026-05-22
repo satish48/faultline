@@ -16,6 +16,8 @@ API contract (confirmed from route inspection):
 
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 import plotly.graph_objects as go
 import httpx
@@ -129,16 +131,21 @@ def _humanize(s: str) -> str:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
+default_url = os.getenv(
+    "API_BASE_URL",
+    "https://faultline-production-e04c.up.railway.app"
+)
+
 with st.sidebar:
     st.markdown("# ⚡ Faultline")
     st.caption("Autonomous Agent Observability")
     st.divider()
 
-    base_url = st.text_input(
+    api_url = st.text_input(
         "API URL",
-        value="http://localhost:8000",
-        key="base_url",
-    ).rstrip("/")
+        value=default_url
+    )
+    base_url = api_url.rstrip("/")
 
     # Connection status — quick health ping
     try:
