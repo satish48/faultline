@@ -133,3 +133,16 @@ app.include_router(conflict_routes.router, prefix="/conflicts", tags=["Conflicts
 async def health(request: Request) -> HealthResponse:
     db_ok = hasattr(request.app.state, "store")
     return HealthResponse(db_connected=db_ok)
+
+
+@app.get("/", tags=["System"])
+async def root():
+    import os
+    return {
+        "name": "Faultline",
+        "version": "1.0.0",
+        "status": "running",
+        "demo_mode": os.getenv("DEMO_MODE", "false"),
+        "docs": "/docs",
+        "health": "/health"
+    }
