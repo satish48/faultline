@@ -141,27 +141,25 @@ with st.sidebar:
     st.caption("Autonomous Agent Observability")
     st.divider()
 
-    api_url = st.text_input(
-        "API URL",
-        value=default_url
-    )
+    # Advanced Settings expander — collapsed by default so it stays out of the way
+    with st.expander("⚙️ Advanced Settings", expanded=False):
+        api_url = st.text_input("API URL", value=default_url)
     base_url = api_url.rstrip("/")
 
-    # Connection status — quick health ping
+    # Connection status — always visible, outside the expander
     try:
         with httpx.Client(timeout=5) as _client:
             _resp = _client.get(f"{base_url}/health")
-        if _resp.status_code == 200:
-            st.markdown(
-                '<span style="color:#2ECC71;font-weight:bold;">● Connected</span>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<span style="color:#E8341A;font-weight:bold;">● Disconnected</span>',
-                unsafe_allow_html=True,
-            )
+        _connected = _resp.status_code == 200
     except Exception:
+        _connected = False
+
+    if _connected:
+        st.markdown(
+            '<span style="color:#2ECC71;font-weight:bold;">● Connected</span>',
+            unsafe_allow_html=True,
+        )
+    else:
         st.markdown(
             '<span style="color:#E8341A;font-weight:bold;">● Disconnected</span>',
             unsafe_allow_html=True,
@@ -172,12 +170,46 @@ with st.sidebar:
     st.markdown("**Model:** Groq llama-3.3-70b")
 
 
+# ── Hero ──────────────────────────────────────────────────────────────────────
+
+st.markdown(
+    """
+    <div style="padding:1.6rem 0 0.4rem;">
+      <h1 style="font-size:2.6rem;font-weight:800;margin-bottom:0.25rem;letter-spacing:-0.5px;">
+        ⚡ Faultline
+      </h1>
+      <p style="font-size:1.15rem;color:#9ca3af;margin-bottom:0.6rem;font-weight:500;">
+        Autonomous Agent Observability &amp; Governance
+      </p>
+      <p style="font-size:0.95rem;color:#6b7280;max-width:720px;line-height:1.6;margin:0;">
+        Faultline instruments multi-agent pipelines to audit every decision, detect
+        inter-agent conflicts in real time — semantic, procedural, and temporal — and
+        surface specific architectural remediation recommendations before failures reach
+        production.
+      </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ── System status cards ────────────────────────────────────────────────────────
+
+_status_label    = "● Online" if _connected else "● Offline"
+_backend_display = base_url.replace("https://", "").replace("http://", "")
+
+sc1, sc2, sc3 = st.columns(3)
+sc1.metric("System Status",   _status_label)
+sc2.metric("Model Provider",  "Groq · llama-3.3-70b")
+sc3.metric("API Backend",     _backend_display)
+
+st.divider()
+
 # ── Main tabs ─────────────────────────────────────────────────────────────────
 
 tab1, tab2, tab3 = st.tabs([
     "🔍 Decision Audit",
     "⚡ Conflict Monitor",
-    "🧠 Memory & Recommendations",
+    "🧠 Memory Intelligence",
 ])
 
 
@@ -186,13 +218,18 @@ tab1, tab2, tab3 = st.tabs([
 # ═══════════════════════════════════════════════════════════
 
 with tab1:
-    st.header("Decision Audit")
+    st.markdown("### Decision Audit")
+    st.caption(
+        "Paste any Run ID to generate a full grounded audit report — "
+        "risk classification, decision trail, counterfactual sensitivity, and risk factors."
+    )
 
     run_id_audit = st.text_input(
         "Run ID",
         key="audit_run_id",
-        placeholder="e.g. demo-session-001",
+        value="demo-session-001",
     )
+    st.caption("Use **demo-session-001** to load the pre-recorded demo run with no setup required.")
 
     if st.button("Run Audit", key="btn_audit"):
         if not run_id_audit.strip():
@@ -305,13 +342,19 @@ with tab1:
 # ═══════════════════════════════════════════════════════════
 
 with tab2:
-    st.header("Conflict Monitor")
+    st.markdown("### Conflict Monitor")
+    st.caption(
+        "Scan any agent run for inter-agent conflicts. "
+        "Detects semantic contradictions, procedural collisions, and temporal staleness — "
+        "with root cause attribution and autonomous resolution strategy."
+    )
 
     run_id_conflict = st.text_input(
         "Run ID",
         key="conflict_run_id",
-        placeholder="e.g. demo-session-001",
+        value="demo-session-001",
     )
+    st.caption("Use **demo-session-001** to scan the pre-recorded 3-conflict demo run.")
 
     if st.button("Scan for Conflicts", key="btn_conflict"):
         if not run_id_conflict.strip():
@@ -407,7 +450,12 @@ with tab2:
 # ═══════════════════════════════════════════════════════════
 
 with tab3:
-    st.header("Memory & Recommendations")
+    st.markdown("### Memory Intelligence")
+    st.caption(
+        "Accumulates conflict patterns across runs. Surfaces specific architectural "
+        "fix recommendations when the same pattern recurs — the system gets smarter "
+        "with every conflict it observes."
+    )
 
     # Auto-load on tab render
     patterns_data, _pat_err = api_get(f"{base_url}/conflicts/patterns")
